@@ -1,4 +1,4 @@
-# BlinkAuth
+# FaceGate
 
 > Autenticação por reconhecimento facial com **liveness detection** (piscar) — 100% local, em Docker.
 
