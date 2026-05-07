@@ -1,0 +1,40 @@
+services:
+  backend:
+    build: ./backend
+    container_name: facial-auth-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - DB_PATH=/app/data/usuarios.db
+      - AUDIT_FOLDER=/app/auditoria
+      - FACES_FOLDER=/app/rostos_cadastrados
+    volumes:
+      - ./auditoria:/app/auditoria
+      - ./rostos_cadastrados:/app/rostos_cadastrados
+      - sqlite_data:/app/data
+      - deepface_weights:/app/.deepface
+    networks:
+      - facial-net
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: facial-auth-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - facial-net
+    restart: unless-stopped
+
+networks:
+  facial-net:
+    driver: bridge
+
+volumes:
+  sqlite_data:
+  deepface_weights:

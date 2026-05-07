@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Facial Auth · Reconhecimento Facial</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --accent: #38bdf8;
+      --accent-2: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1024px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: -0.5px;
+    }
+    p.lead {
+      color: var(--muted);
+      margin: 0 0 24px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      color: var(--accent);
+    }
+    .video-wrap {
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+    }
+    video, canvas.preview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    canvas { display: none; }
+    .controls {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #0b1220;
+      color: var(--text);
+      font-size: 14px;
+    }
+    button {
+      padding: 11px 14px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: filter 0.15s;
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+    button:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-primary { background: var(--accent); color: #0b1220; }
+    .btn-success { background: var(--accent-2); color: #052e16; }
+    .btn-secondary { background: #334155; color: var(--text); }
+    .status {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #0b1220;
+      border-left: 4px solid var(--muted);
+      font-size: 14px;
+      min-height: 48px;
+      white-space: pre-wrap;
+    }
+    .status.ok { border-left-color: var(--accent-2); }
+    .status.fail { border-left-color: var(--danger); }
+    .status.warn { border-left-color: var(--warning); }
+    .stats {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .stats span { color: var(--text); font-weight: 600; }
+    .users-list {
+      max-height: 240px;
+      overflow-y: auto;
+      margin-top: 8px;
+      background: #0b1220;
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .users-list ul { margin: 0; padding-left: 18px; }
+    .users-list li {
+      padding: 4px 0;
+      font-size: 14px;
+    }
+    .progress {
+      width: 100%;
+      height: 8px;
+      background: #334155;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress > div {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 12px;
+      border-radius: 999px;
+      background: #0b1220;
+      color: var(--accent);
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Reconhecimento Facial <span class="badge">DeepFace + MediaPipe</span></h1>
+    <p class="lead">Cadastre um rosto e teste o controle de acesso com liveness detection (piscar os olhos).</p>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>Webcam</h2>
+        <div class="video-wrap">
+          <video id="video" autoplay playsinline muted></video>
+        </div>
+        <canvas id="canvas"></canvas>
+        <div class="controls">
+          <button id="btn-camera" class="btn-secondary">Iniciar câmera</button>
+          <label for="nome">Nome do usuário (para cadastro)</label>
+          <input id="nome" type="text" placeholder="Ex.: Maria Souza" />
+          <button id="btn-cadastrar" class="btn-primary" disabled>Cadastrar rosto</button>
+          <button id="btn-verificar" class="btn-success" disabled>Verificar acesso (piscar)</button>
+        </div>
+        <div class="progress"><div id="progress-bar"></div></div>
+        <div class="status" id="status">Aguardando câmera…</div>
+        <div class="stats" id="stats"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Usuários cadastrados</h2>
+        <button id="btn-refresh" class="btn-secondary">Atualizar lista</button>
+        <div class="users-list" id="users-list">
+          <em style="color: var(--muted);">Clique em "Atualizar lista" para carregar.</em>
+        </div>
+
+        <h2 style="margin-top: 24px;">Como funciona</h2>
+        <ol style="color: var(--muted); padding-left: 18px; font-size: 14px; line-height: 1.6;">
+          <li>Inicie a câmera e enquadre seu rosto.</li>
+          <li>Para cadastrar: digite seu nome e clique em <strong>Cadastrar rosto</strong>.</li>
+          <li>Para verificar: clique em <strong>Verificar acesso</strong> e <strong>pisque pelo menos uma vez</strong> durante a captura (~3s).</li>
+          <li>O backend usa DeepFace (ArcFace + RetinaFace) e MediaPipe para liveness.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = (() => {
+      const fromQuery = new URLSearchParams(window.location.search).get("api");
+      if (fromQuery) return fromQuery.replace(/\/$/, "");
+      return `${window.location.protocol}//${window.location.hostname}:8000`;
+    })();
+
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const btnCamera = document.getElementById("btn-camera");
+    const btnCadastrar = document.getElementById("btn-cadastrar");
+    const btnVerificar = document.getElementById("btn-verificar");
+    const btnRefresh = document.getElementById("btn-refresh");
+    const inputNome = document.getElementById("nome");
+    const statusEl = document.getElementById("status");
+    const statsEl = document.getElementById("stats");
+    const usersList = document.getElementById("users-list");
+    const progressBar = document.getElementById("progress-bar");
+
+    let stream = null;
+
+    function setStatus(text, kind) {
+      statusEl.textContent = text;
+      statusEl.classList.remove("ok", "fail", "warn");
+      if (kind) statusEl.classList.add(kind);
+    }
+
+    function setProgress(pct) {
+      progressBar.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+    }
+
+    function setBusy(busy) {
+      btnCadastrar.disabled = busy || !stream;
+      btnVerificar.disabled = busy || !stream;
+      btnRefresh.disabled = busy;
+      btnCamera.disabled = busy;
+    }
+
+    btnCamera.addEventListener("click", async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+          audio: false,
+        });
+        video.srcObject = stream;
+        await video.play();
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        setStatus("Câmera pronta. Cadastre um rosto ou verifique acesso.", "ok");
+        btnCadastrar.disabled = false;
+        btnVerificar.disabled = false;
+        btnCamera.textContent = "Câmera ativa";
+        btnCamera.disabled = true;
+      } catch (err) {
+        setStatus(`Falha ao iniciar a câmera: ${err.message}`, "fail");
+      }
+    });
+
+    function captureFrame(quality = 0.85) {
+      if (!video.videoWidth) return null;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", quality);
+    }
+
+    async function captureSequence(durationMs = 3500, intervalMs = 200) {
+      const frames = [];
+      const total = Math.max(1, Math.floor(durationMs / intervalMs));
+      for (let i = 0; i < total; i++) {
+        const data = captureFrame(0.8);
+        if (data) frames.push(data);
+        setProgress(((i + 1) / total) * 100);
+        await new Promise((r) => setTimeout(r, intervalMs));
+      }
+      setProgress(0);
+      return frames;
+    }
+
+    btnCadastrar.addEventListener("click", async () => {
+      const nome = inputNome.value.trim();
+      if (!nome) {
+        setStatus("Informe um nome antes de cadastrar.", "warn");
+        return;
+      }
+      const foto = captureFrame(0.9);
+      if (!foto) {
+        setStatus("Não foi possível capturar a imagem.", "fail");
+        return;
+      }
+      setBusy(true);
+      setStatus(`Cadastrando "${nome}"…`);
+      try {
+        const resp = await fetch(`${API_BASE}/cadastrar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nome, foto }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (resp.ok) {
+          setStatus(`✔ ${data.mensagem || "Cadastro realizado."}`, "ok");
+          inputNome.value = "";
+          await refreshUsers();
+        } else {
+          setStatus(`✘ ${data.detail || "Falha no cadastro."}`, "fail");
+        }
+      } catch (err) {
+        setStatus(`✘ Erro de rede: ${err.message}`, "fail");
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    btnVerificar.addEventListener("click", async () => {
+      setBusy(true);
+      setStatus("Capturando frames… PISQUE OS OLHOS pelo menos uma vez agora.", "warn");
+      statsEl.textContent = "";
+      try {
+        const frames = await captureSequence(3500, 180);
+        setStatus(`Enviando ${frames.length} frames para verificação…`);
+        const resp = await fetch(`${API_BASE}/verificar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ frames }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          setStatus(`✘ ${data.detail || "Falha na verificação."}`, "fail");
+          return;
+        }
+        const sim = (data.similaridade || 0) * 100;
+        statsEl.innerHTML = `Similaridade: <span>${sim.toFixed(2)}%</span> · Piscadas detectadas: <span>${data.piscadas ?? 0}</span>`;
+        if (data.acesso) {
+          setStatus(`✔ ACESSO LIBERADO\nUsuário: ${data.usuario}\n${data.mensagem}`, "ok");
+        } else {
+          setStatus(`✘ ACESSO NEGADO\n${data.mensagem}`, "fail");
+        }
+      } catch (err) {
+        setStatus(`✘ Erro de rede: ${err.message}`, "fail");
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    async function refreshUsers() {
+      usersList.innerHTML = "<em style='color: var(--muted);'>Carregando…</em>";
+      try {
+        const resp = await fetch(`${API_BASE}/usuarios`);
+        const data = await resp.json();
+        if (!data.usuarios || data.usuarios.length === 0) {
+          usersList.innerHTML = "<em style='color: var(--muted);'>Nenhum usuário cadastrado.</em>";
+          return;
+        }
+        const items = data.usuarios
+          .map((u) => `<li><strong>${u.nome}</strong> <span style='color: var(--muted);'>· ${u.criado_em}</span></li>`)
+          .join("");
+        usersList.innerHTML = `<ul>${items}</ul>`;
+      } catch (err) {
+        usersList.innerHTML = `<em style='color: var(--danger);'>Erro: ${err.message}</em>`;
+      }
+    }
+
+    btnRefresh.addEventListener("click", refreshUsers);
+    refreshUsers();
+  </script>
+</body>
+</html>

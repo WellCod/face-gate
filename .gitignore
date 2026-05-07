@@ -1,0 +1,71 @@
+# ---- Segredos / configuração local ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+credentials*.json
+
+# ---- Dados sensíveis (PII: rostos, encodings, auditoria) ----
+auditoria/*
+!auditoria/.gitkeep
+rostos_cadastrados/*
+!rostos_cadastrados/.gitkeep
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- Pesos / modelos ----
+.deepface/
+*.h5
+*.pb
+*.tflite
+*.onnx
+*.pt
+*.pth
+
+# ---- Configuração de assistente local ----
+CLAUDE.md
+.claude/
+.cursor/
+.cursorrules
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# ---- Logs ----
+*.log
+logs/
+
+# ---- IDE / editor ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- Sistema operacional ----
+.DS_Store
+Thumbs.db
+desktop.ini

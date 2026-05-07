@@ -1,0 +1,46 @@
+# ---- Configuração local / segredos ----
+**/.env
+**/.env.*
+!**/.env.example
+**/secrets/
+**/credentials*.json
+
+# ---- Dados sensíveis e geradoss em runtime ----
+**/auditoria/*
+!**/auditoria/.gitkeep
+**/rostos_cadastrados/*
+!**/rostos_cadastrados/.gitkeep
+**/data/
+**/*.db
+**/*.sqlite*
+**/.deepface/
+
+# ---- Configuração de assistente local ----
+**/CLAUDE.md
+**/.claude/
+**/.cursor/
+**/.cursorrules
+
+# ---- Python ----
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.venv
+**/venv
+**/.coverage
+**/htmlcov
+**/*.egg-info
+
+# ---- VCS / editor / OS ----
+**/.git
+**/.gitignore
+**/.vscode
+**/.idea
+**/.DS_Store
+**/Thumbs.db
+
+# ---- Documentação / repo (não precisa entrar no build) ----
+**/README.md

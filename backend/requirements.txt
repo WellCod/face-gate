@@ -1,0 +1,13 @@
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+python-multipart==0.0.9
+pydantic==2.6.1
+deepface==0.0.93
+tensorflow==2.16.2
+tf-keras==2.16.0
+opencv-python-headless==4.9.0.80
+mediapipe==0.10.14
+numpy==1.26.4
+Pillow==10.2.0
+python-dotenv==1.0.1
+retina-face==0.0.17
