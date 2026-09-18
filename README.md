@@ -30,8 +30,8 @@ Aplicação completa de reconhecimento facial com **liveness detection** rodando
 ## Configuração
 
 ```bash
-git clone <repo-url>
-cd facial-auth
+git clone https://github.com/WellCod/face-gate.git
+cd face-gate
 cp .env.example .env   # opcional: o app sobe com defaults se não existir
 ```
 
@@ -52,19 +52,19 @@ Edite o `.env` se quiser ajustar o limiar ou o modelo.
 ## Subindo a aplicação
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 Para rodar em background:
 
 ```bash
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 Para parar:
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ---
