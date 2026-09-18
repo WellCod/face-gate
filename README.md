@@ -1,19 +1,82 @@
 # FaceGate
 
-> Autenticação por reconhecimento facial com **liveness detection** (piscar) — 100% local, em Docker.
+> Autenticação por reconhecimento facial com **liveness detection** — 100% local, em Docker.
 
-![status](https://img.shields.io/badge/status-experimental-orange)
-![docker](https://img.shields.io/badge/docker--compose-ready-blue)
+![CI](https://github.com/WellCod/face-gate/actions/workflows/ci.yml/badge.svg)
 ![python](https://img.shields.io/badge/python-3.10-blue)
+![docker](https://img.shields.io/badge/docker--compose-ready-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
-Aplicação completa de reconhecimento facial com **liveness detection** rodando 100% localmente via **Docker Compose**. Para subir basta `docker compose up --build`.
+---
 
-- **Backend:** Python 3.10 + FastAPI
-- **Reconhecimento facial:** DeepFace com **ArcFace** (modelo) e **RetinaFace** (detector)
-- **Liveness:** MediaPipe (FaceMesh) — detecta piscadas e movimento de cabeça
-- **Frontend:** HTML + JavaScript puro, servido por **Nginx**
-- **Banco:** SQLite (encodings persistidos em volume Docker)
+## O problema
+
+Reconhecimento facial sozinho não autentica ninguém: uma foto no celular passa.
+O que separa uma prova de identidade de um filtro de rede social é a **detecção
+de vivacidade** — provar que há uma pessoa ali, agora.
+
+E há um segundo problema, menos discutido: rosto é **dado biométrico**. Serviço
+de reconhecimento em nuvem significa mandar o rosto de alguém para um terceiro,
+com tudo que isso implica de retenção, jurisdição e vazamento. O FaceGate não
+manda: **nenhum frame sai da máquina**.
+
+---
+
+## Como funciona
+
+**Vivacidade pelo piscar.** O backend recebe uma sequência de frames e calcula o
+**EAR** (*Eye Aspect Ratio*) quadro a quadro, com o FaceMesh do MediaPipe. O EAR
+é a razão entre a abertura vertical e a largura do olho — cai perto de zero com
+o olho fechado e fica em torno de 0,3 com ele aberto.
+
+Uma piscada é contada quando o EAR **cai abaixo de 0,21 e volta a subir acima de
+0,25**. Os dois limites são diferentes de propósito: com um único corte, ruído
+de landmark em volta do valor faria o contador disparar sozinho. A folga entre
+eles é histerese, o mesmo princípio de um termostato.
+
+Como alternativa, movimento relevante de cabeça também vale — variação relativa
+da posição do nariz acima de `0.04`.
+
+**Identidade por embedding.** O rosto vira um vetor com **ArcFace** (via
+DeepFace), detectado por **RetinaFace**, com fallback automático para o detector
+do OpenCV quando a detecção falha. A comparação com os rostos cadastrados é por
+**similaridade de cosseno**, e o acesso é liberado quando ela fica acima de
+`SIMILARITY_THRESHOLD`.
+
+**Persistência.** Encodings em SQLite, num volume nomeado. Pesos do modelo
+cacheados em outro volume, para a primeira execução não se repetir. As pastas
+`auditoria/` e `rostos_cadastrados/` são bind mounts — ficam na sua máquina.
+
+**Rastro.** Cada tentativa gera log com timestamp, similaridade obtida,
+threshold aplicado, piscadas contadas e duração. Decisão de acesso sem registro
+não é auditável.
+
+---
+
+## Stack
+
+| | |
+|---|---|
+| **Backend** | Python 3.10 · FastAPI |
+| **Reconhecimento** | DeepFace com ArcFace (modelo) e RetinaFace (detector) |
+| **Vivacidade** | MediaPipe FaceMesh |
+| **Frontend** | HTML e JavaScript sem framework, servido por Nginx |
+| **Persistência** | SQLite em volume Docker |
+
+---
+
+## Testes
+
+A suíte cobre o que é determinístico: o cálculo do EAR, os limites de
+histerese, os casos degenerados e a ida e volta dos encodings pelo SQLite.
+
+```bash
+pip install -r backend/requirements-test.txt
+cd backend && python -m pytest -q
+```
+
+O reconhecimento facial em si fica de fora: depende de pesos de ~250 MB
+baixados em runtime, e um teste que baixa 250 MB não roda em CI de PR.
 
 ---
 
@@ -185,13 +248,18 @@ Executa **liveness** + **reconhecimento facial**.
 ## Estrutura
 
 ```
-facial-auth/
+face-gate/
+├── .github/workflows/
+│   └── ci.yml               # testes + scan de segredos
 ├── backend/
 │   ├── main.py              # Endpoints FastAPI
 │   ├── database.py          # SQLite (usuários e encodings)
 │   ├── face_service.py      # DeepFace (ArcFace + RetinaFace)
 │   ├── liveness_service.py  # MediaPipe (FaceMesh + EAR)
+│   ├── tests/               # EAR, histerese e persistência
 │   ├── requirements.txt
+│   ├── requirements-test.txt
+│   ├── pytest.ini
 │   └── Dockerfile
 ├── frontend/
 │   ├── index.html           # UI com webcam (HTML + JS puro)
@@ -203,16 +271,6 @@ facial-auth/
 ├── .env.example
 └── README.md
 ```
-
----
-
-## Detalhes técnicos
-
-- **Liveness:** o backend recebe uma sequência de frames e calcula o **EAR (Eye Aspect Ratio)** quadro a quadro com o FaceMesh do MediaPipe. Conta como piscada quando o EAR cai abaixo de `0.21` e volta a subir acima de `0.25`. Como fallback, também aceita movimento de cabeça relevante (variação de posição do nariz).
-- **Reconhecimento:** o backend extrai o embedding com **ArcFace** (DeepFace) usando o detector **RetinaFace**. Em caso de falha, há fallback automático para o detector **OpenCV** (configurado em `face_service.py`).
-- **Threshold:** comparação por **similaridade de cosseno** entre o embedding capturado e os embeddings cadastrados; libera acesso se `similaridade ≥ SIMILARITY_THRESHOLD`.
-- **Persistência:** SQLite em volume nomeado (`sqlite_data`); pesos do DeepFace cacheados em volume (`deepface_weights`); pastas `auditoria/` e `rostos_cadastrados/` mapeadas como bind mounts.
-- **Logs:** cada tentativa imprime no terminal um log com timestamp, contendo similaridade, threshold, piscadas e duração.
 
 ---
 
